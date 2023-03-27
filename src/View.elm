@@ -20,10 +20,11 @@ import Widget.Material as Material
 accessTokenField : Model.LoginData -> Bool -> Element Msg
 accessTokenField model editable =
     Widget.currentPasswordInputV2
-        ( Material.passwordInput
-            ( if editable then
+        (Material.passwordInput
+            (if editable then
                 Material.defaultPalette
-            else
+
+             else
                 C.primaryPalette
             )
         )
@@ -51,10 +52,11 @@ accessTokenField model editable =
 baseUrlField : Model.LoginData -> Bool -> Element Msg
 baseUrlField model editable =
     Widget.textInput
-        ( Material.textInput
-            ( if editable then
+        (Material.textInput
+            (if editable then
                 Material.defaultPalette
-            else
+
+             else
                 C.primaryPalette
             )
         )
@@ -177,10 +179,11 @@ loginScreen model editable =
 passwordField : Model.LoginData -> Bool -> Element Msg
 passwordField model editable =
     Widget.currentPasswordInputV2
-        ( Material.passwordInput
-            ( if editable then
+        (Material.passwordInput
+            (if editable then
                 Material.defaultPalette
-            else
+
+             else
                 C.primaryPalette
             )
         )
@@ -239,10 +242,11 @@ submitField model submittable =
 usernameField : Model.LoginData -> Bool -> Element Msg
 usernameField model editable =
     Widget.usernameInput
-        ( Material.textInput
-            ( if editable then
+        (Material.textInput
+            (if editable then
                 Material.defaultPalette
-            else
+
+             else
                 C.primaryPalette
             )
         )

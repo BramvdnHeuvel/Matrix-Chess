@@ -4,7 +4,6 @@ import Browser
 import Colors
 import Element
 import Element.Background
-import Html exposing (Html)
 import Http
 import Internal.Tools.Exceptions as X
 import Matrix
@@ -14,6 +13,7 @@ import Task
 import View
 
 
+main : Platform.Program () Model Msg
 main =
     Browser.document { init = init, view = view, update = update, subscriptions = subscriptions }
 
