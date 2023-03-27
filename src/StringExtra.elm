@@ -1,10 +1,13 @@
-module StringExtra exposing (withHttps, httpsLen)
+module StringExtra exposing (httpsLen, withHttps)
 
 {-| Make sure that a string starts with <https://>
 -}
 
+
 httpsLen : Int
-httpsLen = String.length "https://"
+httpsLen =
+    String.length "https://"
+
 
 withHttps : String -> String
 withHttps text =

@@ -1,15 +1,17 @@
 module Main exposing (main)
 
 import Browser
+import Colors
 import Element
+import Element.Background
 import Html exposing (Html)
 import Http
 import Internal.Tools.Exceptions as X
 import Matrix
 import Model exposing (Model)
 import Msg exposing (Msg)
-import View
 import Task
+import View
 
 
 main =
@@ -76,46 +78,46 @@ update msg model =
                 failLoginWith t =
                     ( Model.LoginScreen { data | error = Just t }, Cmd.none )
             in
-                case result of
-                    Ok vu ->
-                        -- TODO: Implement model here
-                        ( model, Cmd.none )
+            case result of
+                Ok vu ->
+                    -- TODO: Implement model here
+                    ( model, Cmd.none )
 
-                    Err (X.InternetException Http.NetworkError) ->
-                        failLoginWith "You have a bad (or no) internet connection. Please try again." 
+                Err (X.InternetException Http.NetworkError) ->
+                    failLoginWith "You have a bad (or no) internet connection. Please try again."
 
-                    Err (X.InternetException Http.Timeout) ->
-                        failLoginWith "Connection timed out. The server is overloaded or your connection is bad." 
+                Err (X.InternetException Http.Timeout) ->
+                    failLoginWith "Connection timed out. The server is overloaded or your connection is bad."
 
-                    Err (X.ServerException (X.M_FORBIDDEN {error})) ->
-                        error
-                            |> Maybe.map ((++) "Login failed: ")
-                            |> Maybe.withDefault "Failed to login! Invalid login credentials"
-                            |> failLoginWith
-                    
-                    Err (X.ServerException (X.M_UNKNOWN_TOKEN { error })) ->
-                        error
-                            |> Maybe.map ((++) "Unknown token: ")
-                            |> Maybe.withDefault "The homeserver did not recognize your login credentials."
-                            |> failLoginWith
-                    
-                    Err (X.ServerException (X.M_UNAUTHORIZED { error })) ->
-                        error
-                            |> Maybe.map ((++) "Unauthorized: ")
-                            |> Maybe.withDefault "Server did not authorize login"
-                            |> failLoginWith
+                Err (X.ServerException (X.M_FORBIDDEN { error })) ->
+                    error
+                        |> Maybe.map ((++) "Login failed: ")
+                        |> Maybe.withDefault "Failed to login! Invalid login credentials"
+                        |> failLoginWith
 
-                    Err (X.SDKException (X.ServerReturnsBadJSON _)) ->
-                        failLoginWith "The homeserver returns bad JSON - are you sure you're pointing to a Matrix server?"
-                    
-                    Err (X.SDKException X.NoAccessToken) ->
-                        failLoginWith "Access token rejected by homeserver"
+                Err (X.ServerException (X.M_UNKNOWN_TOKEN { error })) ->
+                    error
+                        |> Maybe.map ((++) "Unknown token: ")
+                        |> Maybe.withDefault "The homeserver did not recognize your login credentials."
+                        |> failLoginWith
 
-                    Err X.UnsupportedSpecVersion ->
-                        failLoginWith "The homeserver and this SDK are incompatible - they do not have any shared versions."
+                Err (X.ServerException (X.M_UNAUTHORIZED { error })) ->
+                    error
+                        |> Maybe.map ((++) "Unauthorized: ")
+                        |> Maybe.withDefault "Server did not authorize login"
+                        |> failLoginWith
 
-                    _ ->
-                        failLoginWith "An unknown error has occurred."
+                Err (X.SDKException (X.ServerReturnsBadJSON _)) ->
+                    failLoginWith "The homeserver returns bad JSON - are you sure you're pointing to a Matrix server?"
+
+                Err (X.SDKException X.NoAccessToken) ->
+                    failLoginWith "Access token rejected by homeserver"
+
+                Err X.UnsupportedSpecVersion ->
+                    failLoginWith "The homeserver and this SDK are incompatible - they do not have any shared versions."
+
+                _ ->
+                    failLoginWith "An unknown error has occurred."
 
         -- Ignore any other updates while waiting for the homeserver's response
         ( Model.InitialSync _ _, _ ) ->
@@ -131,6 +133,7 @@ subscriptions model =
     case model of
         Model.LoginScreen _ ->
             Sub.none
+
         Model.InitialSync _ _ ->
             Sub.none
 
@@ -146,9 +149,14 @@ view model =
         (case model of
             Model.LoginScreen data ->
                 View.loginScreen data True
+
             Model.InitialSync data _ ->
                 View.loginScreen data False
         )
-            |> Element.layout [ Element.centerX ]
+            |> Element.layout
+                [ Element.centerX
+                , Element.padding 25
+                , Element.Background.color Colors.layoutBackground
+                ]
             |> List.singleton
     }
