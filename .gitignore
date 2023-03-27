@@ -2,3 +2,6 @@
 elm-stuff
 # elm-repl generated files
 repl-temp-*
+
+# Ignore manually downloaded Matrix API files
+elm-matrix-sdk/
