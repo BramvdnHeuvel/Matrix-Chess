@@ -4,6 +4,7 @@ import Chess
 import Colors as C
 import Element exposing (Element)
 import Element.Background
+import Element.Border
 import Element.Events
 import Element.Font
 import Element.Input as Input
@@ -94,8 +95,8 @@ baseUrlField model editable =
             [ Element.centerX ]
 
 
-board : Position.Position -> List Square.Square -> Element Msg
-board position selectedDestinations =
+board : Position.Position -> List Square.Square -> Maybe Move.Move -> Element Msg
+board position selectedDestinations lastMove =
     SquareFile.all
         |> List.map
             (\file ->
@@ -109,15 +110,21 @@ board position selectedDestinations =
 
                                 backgroundColor : Element.Attribute msg
                                 backgroundColor =
-                                    if (Square.fileDistance Square.a1 square + Square.rankDistance Square.a1 square |> modBy 2) == 0 then
+                                    if Maybe.map Move.from lastMove == Just square then
+                                        C.background C.noordstarYellow
+
+                                    else if Maybe.map Move.to lastMove == Just square then
+                                        C.background C.noordstarYellow
+
+                                    else if (Square.fileDistance Square.a1 square + Square.rankDistance Square.a1 square |> modBy 2) == 0 then
                                         C.background C.noordstarWhite
 
                                     else
                                         C.background C.noordstarGreen
                             in
                             Element.el
-                                [ Element.height <| Element.minimum 8 <| Element.fill
-                                , Element.width <| Element.minimum 8 <| Element.fill
+                                [ Element.height Element.fill
+                                , Element.width Element.fill
                                 , backgroundColor
                                 , Element.Events.onClick <| Msg.LoggedIn (Msg.ClickSquare square)
                                 ]
@@ -134,14 +141,13 @@ board position selectedDestinations =
         |> Element.row [ Element.width Element.fill, Element.height Element.fill ]
         |> Element.el
             [ Element.htmlAttribute (Html.Attributes.style "aspect-ratio" "1 / 1")
-            , Element.padding 20
             ]
 
 
 boardMenu : Game.Game -> Element Msg
 boardMenu game =
-    Widget.toggleRow
-        { elementRow = Material.toggleRow
+    Widget.buttonRow
+        { elementRow = Material.buttonRow
         , content = Material.outlinedButton C.secondaryPalette
         }
         [ ( False
@@ -170,6 +176,32 @@ boardMenu game =
 
                 else
                     Just (Msg.LoggedIn Msg.MoveForward)
+            }
+          )
+        , ( Game.isAtEnd game
+          , { text = "Now"
+            , icon = getIcon Icons.fast_forward
+            , onPress =
+                if Game.isAtEnd game then
+                    Nothing
+
+                else
+                    Just (Msg.LoggedIn Msg.JumpToEnd)
+            }
+          )
+        ]
+
+
+boardTopMenu : Element Msg
+boardTopMenu =
+    Widget.buttonRow
+        { elementRow = Material.toggleRow
+        , content = Material.outlinedButton C.secondaryPalette
+        }
+        [ ( False
+          , { text = "Back"
+            , icon = getIcon Icons.arrow_back
+            , onPress = Just <| Msg.LoggedIn <| Msg.BrowseGames
             }
           )
         ]
@@ -265,10 +297,10 @@ createGame vault data =
                                             if String.startsWith "mxc://" url then
                                                 url
                                                     |> String.dropLeft (String.length "mxc://")
-                                                    |> (++) "https://matrix-client.matrix.org/"
+                                                    |> (\u -> "https://matrix-client.matrix.org/_matrix/media/r0/thumbnail/" ++ u ++ "?width=" ++ String.fromInt size ++ "&height=" ++ String.fromInt size ++ "&method=scale")
 
                                             else
-                                                "https://matrix-client.matrix.org/" ++ url
+                                                "https://matrix-client.matrix.org/_matrix/media/r0/thumbnail/" ++ url ++ "?width=" ++ String.fromInt size ++ "&height=" ++ String.fromInt size ++ "&method=scale"
                                         )
                                     |> Maybe.map (\url -> { src = url, description = "Matrix room image" })
                                     |> Maybe.map (Element.image [ Element.height (Element.px size), Element.width (Element.px size) ])
@@ -281,6 +313,8 @@ createGame vault data =
                                             |> String.toUpper
                                             |> Element.text
                                             |> Element.el
+                                                [ Element.centerX, Element.centerY ]
+                                            |> Element.el
                                                 [ C.background color
                                                 , C.font C.noordstarWhite
                                                 , Element.width (Element.px size)
@@ -291,9 +325,11 @@ createGame vault data =
                 )
             |> List.append [ Widget.headerItem (Material.fullBleedHeader C.secondaryPalette) "Select a room" ]
             |> Widget.itemList (Material.cardColumn C.secondaryPalette)
+            |> Element.el [ Element.width Element.fill ]
             |> (\roomList ->
-                    column
-                        [ row
+                    Element.column
+                        [ Element.width Element.fill ]
+                        [ Element.row [ Element.centerX ]
                             [ Widget.textInput
                                 (Material.textInput Material.defaultPalette)
                                 { chips = []
@@ -302,6 +338,7 @@ createGame vault data =
                                 , label = "Username"
                                 , onChange = \v -> Msg.LoggedIn <| Msg.EditCreateGameModal { data | username = v }
                                 }
+                                |> Element.el [ Element.width Element.fill ]
                             , Widget.textButton (Material.outlinedButton C.secondaryPalette)
                                 { text = "INVITE"
                                 , onPress =
@@ -335,7 +372,11 @@ createGame vault data =
                         --     |> Element.el [ C.font C.noordstarRed ]
                         ]
                )
-            |> Element.el [ Element.centerX, Element.centerY ]
+            |> Element.el
+                [ Element.centerX
+                , Element.centerY
+                , Element.width <| Element.minimum 400 <| Element.shrink
+                ]
     }
 
 
@@ -447,18 +488,19 @@ loggedInScreen vault model =
         Model.BrowsingGames _ ->
             (case knownGames of
                 [] ->
-                    Element.text "I cannot find any chess games on your account."
+                    Element.text "I could not detect any games. Try to create one!"
 
                 _ :: _ ->
                     knownGames
+                        |> List.reverse
                         |> List.map
                             (\({ data } as summary) ->
                                 Widget.imageItem
                                     (Material.imageItem C.primaryPalette)
-                                    { text = "Your match against " ++ Chess.opponent vault summary
+                                    { text = Chess.opponent vault summary ++ " - turn " ++ (String.fromInt <| List.length <| Game.moves data.game)
                                     , onPress = Just <| Msg.LoggedIn <| Msg.ViewGame summary
                                     , image =
-                                        board (Game.position data.game) []
+                                        board (Game.position data.game) [] (Game.previousMove data.game)
                                             |> Element.el [ Element.width (Element.px 40), Element.height (Element.px 40) ]
                                     , content =
                                         \{ size, color } ->
@@ -468,6 +510,8 @@ loggedInScreen vault model =
                                                         [ C.background color
                                                         , C.font C.noordstarWhite
                                                         , Element.height (Element.px size)
+                                                        , Element.Border.rounded 15
+                                                        , Element.padding 5
                                                         ]
 
                                             else
@@ -477,23 +521,25 @@ loggedInScreen vault model =
                         |> Widget.itemList (Material.cardColumn C.primaryPalette)
             )
                 |> (\content ->
-                        column
-                            [ Widget.textButton (Material.textButton C.primaryPalette)
+                        Element.column
+                            [ Element.width Element.fill, Element.spacing 20 ]
+                            [ Widget.textButton (Material.textButton C.darkPalette)
                                 { text = "CREATE", onPress = Just <| Msg.LoggedIn <| Msg.EditCreateGameModal { username = "", room = Nothing } }
                                 |> Element.el [ Element.alignRight ]
                             , content
                             ]
                    )
+                |> Element.el (Material.cardAttributes Material.defaultPalette)
                 |> Element.el
-                    [ Element.fill
+                    [ Element.shrink
                         |> Element.maximum 750
                         |> Element.width
                     , Element.centerX
                     ]
-                |> Element.el (Material.cardAttributes Material.defaultPalette)
 
         Model.PlayGame _ data ->
-            [ board
+            [ boardTopMenu
+            , board
                 (Game.position data.game.data.game)
                 (case data.selected of
                     Nothing ->
@@ -504,6 +550,7 @@ loggedInScreen vault model =
                             |> Position.movesFrom square
                             |> List.map Move.to
                 )
+                (Game.previousMove data.game.data.game)
             , boardMenu data.game.data.game
             ]
                 |> Element.column (Material.cardAttributes Material.defaultPalette)

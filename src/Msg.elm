@@ -25,3 +25,5 @@ type LoggedInMsg
     | RemoveModal
     | EditCreateGameModal { username : String, room : Maybe Matrix.Room.Room }
     | CreateGame String Matrix.Room.Room
+    | BrowseGames
+    | JumpToEnd

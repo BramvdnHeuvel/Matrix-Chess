@@ -7,10 +7,7 @@ import Chess
 import Element exposing (Element)
 import Game
 import Internal.Tools.Exceptions as X
-import Json.Decode as D
-import Json.Encode as E
 import Matrix
-import Matrix.Event
 import Matrix.Room
 import Model
 import Move
@@ -42,6 +39,9 @@ toCmd =
 update : Matrix.Vault -> Msg.LoggedInMsg -> Model.LoggedInModel -> ( Matrix.Vault, Model.LoggedInModel, Cmd Msg )
 update vault msg model =
     case ( msg, model ) of
+        ( Msg.BrowseGames, _ ) ->
+            ( vault, Model.BrowsingGames Nothing, Cmd.none )
+
         ( Msg.VaultUpdate (Ok u), _ ) ->
             case Chess.resolve vault of
                 { accountDataToUpdate, states } ->
@@ -207,6 +207,17 @@ update vault msg model =
                             ( vault
                             , Model.PlayGame modal
                                 { pg | selected = Nothing, game = { game | data = { data | game = Game.forward data.game } } }
+                            , Cmd.none
+                            )
+
+        ( Msg.JumpToEnd, Model.PlayGame modal pg ) ->
+            case pg of
+                { game } ->
+                    case game of
+                        { data } ->
+                            ( vault
+                            , Model.PlayGame modal
+                                { pg | selected = Nothing, game = { game | data = { data | game = Game.toEnd data.game } } }
                             , Cmd.none
                             )
 

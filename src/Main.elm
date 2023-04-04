@@ -3,14 +3,12 @@ module Main exposing (main)
 import Browser
 import Colors
 import Element
-import Element.Background
 import GameMain as GM
 import Http
 import Internal.Tools.Exceptions as X
 import Matrix
 import Model exposing (Model)
 import Msg exposing (Msg)
-import Pieces
 import Task
 import Time
 import View
@@ -152,7 +150,7 @@ subscriptions model =
         Model.InitialSync _ _ ->
             Sub.none
 
-        Model.LoggedIn vault _ ->
+        Model.LoggedIn _ _ ->
             Msg.SyncTime
                 |> always
                 |> Time.every 1000

@@ -695,7 +695,7 @@ pgnDecoder =
         (\pgn ->
             case Game.fromPgn pgn of
                 Just game ->
-                    D.succeed game
+                    D.succeed <| Game.toEnd <| game
 
                 Nothing ->
                     D.fail "Invalid PGN"
@@ -807,7 +807,7 @@ opponent vault { data, room } =
 
         Just userId ->
             if userId == data.black && userId == data.black then
-                "yourself"
+                "Against yourself"
 
             else if userId == data.black then
                 nameOf data.white
