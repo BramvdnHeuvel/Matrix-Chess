@@ -1,0 +1,21 @@
+version: v1
+name: ChessGames
+objects:
+  ChessGame:
+    description: Account data object that tracks a game of chess in the room.
+    fields:
+      pgn:
+        type: string
+        required: true
+      player_white:
+        type: string
+        required: true
+      player_black:
+        type: string
+        required: true
+      latest_event_id:
+        type: string
+        required: true
+      last_update_at:
+        type: timestamp
+        required: true

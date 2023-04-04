@@ -1,14 +1,29 @@
 module View exposing (..)
 
+import Chess
 import Colors as C
 import Element exposing (Element)
 import Element.Background
+import Element.Events
 import Element.Font
 import Element.Input as Input
+import Game
+import Html.Attributes
+import Json.Decode as D
 import Material.Icons as Icons
 import Material.Icons.Types as T
+import Matrix
+import Matrix.Event
+import Matrix.Room
 import Model
+import Move
 import Msg exposing (Msg)
+import Piece
+import Pieces
+import Position
+import Square
+import SquareFile
+import SquareRank
 import StringExtra as S
 import Widget
 import Widget.Icon
@@ -22,7 +37,7 @@ accessTokenField model editable =
     Widget.currentPasswordInputV2
         (Material.passwordInput
             (if editable then
-                Material.defaultPalette
+                C.primaryPalette
 
              else
                 C.primaryPalette
@@ -54,7 +69,7 @@ baseUrlField model editable =
     Widget.textInput
         (Material.textInput
             (if editable then
-                Material.defaultPalette
+                C.primaryPalette
 
              else
                 C.primaryPalette
@@ -77,6 +92,251 @@ baseUrlField model editable =
         }
         |> Element.el
             [ Element.centerX ]
+
+
+board : Position.Position -> List Square.Square -> Element Msg
+board position selectedDestinations =
+    SquareFile.all
+        |> List.map
+            (\file ->
+                SquareRank.all
+                    |> List.map
+                        (\rank ->
+                            let
+                                square : Square.Square
+                                square =
+                                    Square.make file rank
+
+                                backgroundColor : Element.Attribute msg
+                                backgroundColor =
+                                    if (Square.fileDistance Square.a1 square + Square.rankDistance Square.a1 square |> modBy 2) == 0 then
+                                        C.background C.noordstarWhite
+
+                                    else
+                                        C.background C.noordstarGreen
+                            in
+                            Element.el
+                                [ Element.height <| Element.minimum 8 <| Element.fill
+                                , Element.width <| Element.minimum 8 <| Element.fill
+                                , backgroundColor
+                                , Element.Events.onClick <| Msg.LoggedIn (Msg.ClickSquare square)
+                                ]
+                                (case Position.pieceOn square position of
+                                    Nothing ->
+                                        Element.none
+
+                                    Just piece ->
+                                        chessPiece piece
+                                )
+                        )
+            )
+        |> List.map (Element.column [ Element.width Element.fill, Element.height Element.fill ])
+        |> Element.row [ Element.width Element.fill, Element.height Element.fill ]
+        |> Element.el
+            [ Element.htmlAttribute (Html.Attributes.style "aspect-ratio" "1 / 1")
+            , Element.padding 20
+            ]
+
+
+boardMenu : Game.Game -> Element Msg
+boardMenu game =
+    Widget.toggleRow
+        { elementRow = Material.toggleRow
+        , content = Material.outlinedButton C.secondaryPalette
+        }
+        [ ( False
+          , { text = "Resign"
+            , icon = getIcon Icons.flag
+            , onPress = Nothing
+            }
+          )
+        , ( Game.isAtBeginning game
+          , { text = "Previous"
+            , icon = getIcon Icons.arrow_back
+            , onPress =
+                if Game.isAtBeginning game then
+                    Nothing
+
+                else
+                    Just (Msg.LoggedIn Msg.MoveBackwards)
+            }
+          )
+        , ( Game.isAtEnd game
+          , { text = "Next"
+            , icon = getIcon Icons.arrow_forward
+            , onPress =
+                if Game.isAtEnd game then
+                    Nothing
+
+                else
+                    Just (Msg.LoggedIn Msg.MoveForward)
+            }
+          )
+        ]
+
+
+chessPiece : Piece.Piece -> Element msg
+chessPiece piece =
+    (if piece == Piece.blackBishop then
+        Pieces.blackBishop
+
+     else if piece == Piece.blackKing then
+        Pieces.blackKing
+
+     else if piece == Piece.blackKnight then
+        Pieces.blackHorse
+
+     else if piece == Piece.blackPawn then
+        Pieces.blackPawn
+
+     else if piece == Piece.blackQueen then
+        Pieces.blackQueen
+
+     else if piece == Piece.blackRook then
+        Pieces.blackTower
+
+     else if piece == Piece.whiteBishop then
+        Pieces.whiteBishop
+
+     else if piece == Piece.whiteKing then
+        Pieces.whiteKing
+
+     else if piece == Piece.whiteKnight then
+        Pieces.whiteHorse
+
+     else if piece == Piece.whitePawn then
+        Pieces.whitePawn
+
+     else if piece == Piece.whiteQueen then
+        Pieces.whiteQueen
+
+     else
+        Pieces.whiteTower
+    )
+        |> Element.html
+
+
+{-| Material column
+-}
+column : List (Element msg) -> Element msg
+column =
+    Widget.column Material.column
+
+
+{-| Modal to create a new game.
+-}
+createGame : Matrix.Vault -> { username : String, room : Maybe Matrix.Room.Room } -> Widget.Modal Msg
+createGame vault data =
+    { onDismiss = Just <| Msg.LoggedIn Msg.RemoveModal
+    , content =
+        Matrix.getRooms vault
+            |> List.map
+                (\room ->
+                    let
+                        roomName : String
+                        roomName =
+                            Matrix.Room.stateEvent { eventType = "m.room.name", stateKey = "" } room
+                                |> Maybe.map Matrix.Event.content
+                                |> Maybe.andThen (D.decodeValue (D.field "name" D.string) >> Result.toMaybe)
+                                |> Maybe.withDefault (Matrix.Room.roomId room)
+                    in
+                    Widget.fullBleedItem
+                        (if
+                            data.room
+                                |> Maybe.map Matrix.Room.roomId
+                                |> Maybe.map ((==) (Matrix.Room.roomId room))
+                                |> Maybe.withDefault False
+                         then
+                            Material.fullBleedItem C.primaryPalette
+
+                         else
+                            Material.fullBleedItem C.secondaryPalette
+                        )
+                        { text = roomName
+                        , onPress = Just <| Msg.LoggedIn <| Msg.EditCreateGameModal { data | room = Just room }
+                        , icon =
+                            \{ size, color } ->
+                                room
+                                    |> Matrix.Room.stateEvent { eventType = "m.room.avatar", stateKey = "" }
+                                    |> Maybe.map Matrix.Event.content
+                                    |> Maybe.andThen (D.decodeValue (D.field "url" D.string) >> Result.toMaybe)
+                                    |> Maybe.map
+                                        (\url ->
+                                            if String.startsWith "mxc://" url then
+                                                url
+                                                    |> String.dropLeft (String.length "mxc://")
+                                                    |> (++) "https://matrix-client.matrix.org/"
+
+                                            else
+                                                "https://matrix-client.matrix.org/" ++ url
+                                        )
+                                    |> Maybe.map (\url -> { src = url, description = "Matrix room image" })
+                                    |> Maybe.map (Element.image [ Element.height (Element.px size), Element.width (Element.px size) ])
+                                    |> Maybe.withDefault
+                                        (roomName
+                                            |> String.toList
+                                            |> List.head
+                                            |> Maybe.withDefault '!'
+                                            |> String.fromChar
+                                            |> String.toUpper
+                                            |> Element.text
+                                            |> Element.el
+                                                [ C.background color
+                                                , C.font C.noordstarWhite
+                                                , Element.width (Element.px size)
+                                                , Element.height (Element.px size)
+                                                ]
+                                        )
+                        }
+                )
+            |> List.append [ Widget.headerItem (Material.fullBleedHeader C.secondaryPalette) "Select a room" ]
+            |> Widget.itemList (Material.cardColumn C.secondaryPalette)
+            |> (\roomList ->
+                    column
+                        [ row
+                            [ Widget.textInput
+                                (Material.textInput Material.defaultPalette)
+                                { chips = []
+                                , text = data.username
+                                , placeholder = Just <| Input.placeholder [] <| Element.text "@alice:example.org"
+                                , label = "Username"
+                                , onChange = \v -> Msg.LoggedIn <| Msg.EditCreateGameModal { data | username = v }
+                                }
+                            , Widget.textButton (Material.outlinedButton C.secondaryPalette)
+                                { text = "INVITE"
+                                , onPress =
+                                    case ( data.username, data.room ) of
+                                        ( _, Nothing ) ->
+                                            Nothing
+
+                                        ( "", _ ) ->
+                                            Nothing
+
+                                        ( _, Just room ) ->
+                                            room
+                                                |> Matrix.Room.stateEvent { eventType = "m.room.member", stateKey = data.username }
+                                                |> Maybe.map Matrix.Event.content
+                                                |> Maybe.andThen (D.decodeValue (D.field "membership" D.string) >> Result.toMaybe)
+                                                |> Maybe.andThen
+                                                    (\membership ->
+                                                        if membership == "join" then
+                                                            Just <| Msg.LoggedIn <| Msg.CreateGame data.username room
+
+                                                        else
+                                                            Nothing
+                                                    )
+                                }
+                            ]
+                        , roomList
+
+                        -- , data.error
+                        --     |> Maybe.withDefault ""
+                        --     |> Element.text
+                        --     |> Element.el [ C.font C.noordstarRed ]
+                        ]
+               )
+            |> Element.el [ Element.centerX, Element.centerY ]
+    }
 
 
 {-| Place an error message.
@@ -174,6 +434,87 @@ loginScreen model editable =
             ]
 
 
+{-| Main screen after having logged in successfully.
+-}
+loggedInScreen : Matrix.Vault -> Model.LoggedInModel -> Element Msg
+loggedInScreen vault model =
+    let
+        knownGames : List Chess.GameSummary
+        knownGames =
+            Chess.getGames vault
+    in
+    case model of
+        Model.BrowsingGames _ ->
+            (case knownGames of
+                [] ->
+                    Element.text "I cannot find any chess games on your account."
+
+                _ :: _ ->
+                    knownGames
+                        |> List.map
+                            (\({ data } as summary) ->
+                                Widget.imageItem
+                                    (Material.imageItem C.primaryPalette)
+                                    { text = "Your match against " ++ Chess.opponent vault summary
+                                    , onPress = Just <| Msg.LoggedIn <| Msg.ViewGame summary
+                                    , image =
+                                        board (Game.position data.game) []
+                                            |> Element.el [ Element.width (Element.px 40), Element.height (Element.px 40) ]
+                                    , content =
+                                        \{ size, color } ->
+                                            if Chess.myTurn vault summary then
+                                                Element.text "YOUR TURN"
+                                                    |> Element.el
+                                                        [ C.background color
+                                                        , C.font C.noordstarWhite
+                                                        , Element.height (Element.px size)
+                                                        ]
+
+                                            else
+                                                Element.none
+                                    }
+                            )
+                        |> Widget.itemList (Material.cardColumn C.primaryPalette)
+            )
+                |> (\content ->
+                        column
+                            [ Widget.textButton (Material.textButton C.primaryPalette)
+                                { text = "CREATE", onPress = Just <| Msg.LoggedIn <| Msg.EditCreateGameModal { username = "", room = Nothing } }
+                                |> Element.el [ Element.alignRight ]
+                            , content
+                            ]
+                   )
+                |> Element.el
+                    [ Element.fill
+                        |> Element.maximum 750
+                        |> Element.width
+                    , Element.centerX
+                    ]
+                |> Element.el (Material.cardAttributes Material.defaultPalette)
+
+        Model.PlayGame _ data ->
+            [ board
+                (Game.position data.game.data.game)
+                (case data.selected of
+                    Nothing ->
+                        []
+
+                    Just square ->
+                        Game.position data.game.data.game
+                            |> Position.movesFrom square
+                            |> List.map Move.to
+                )
+            , boardMenu data.game.data.game
+            ]
+                |> Element.column (Material.cardAttributes Material.defaultPalette)
+                |> Element.el
+                    [ Element.fill
+                        |> Element.maximum 500
+                        |> Element.width
+                    , Element.centerX
+                    ]
+
+
 {-| Field that lets you fill in a password.
 -}
 passwordField : Model.LoginData -> Bool -> Element Msg
@@ -204,6 +545,22 @@ passwordField model editable =
         }
         |> Element.el
             [ Element.centerX ]
+
+
+{-| Material styled row
+-}
+row : List (Element msg) -> Element msg
+row =
+    Widget.row Material.row
+
+
+{-| When provided a modal, show it.
+-}
+showModalScreen : Matrix.Vault -> Model.ModalScreen -> Widget.Modal Msg
+showModalScreen vault screen =
+    case screen of
+        Model.CreateGame data ->
+            createGame vault data
 
 
 {-| Field that lets you submit your credentials when you'd like to log in.
@@ -244,7 +601,7 @@ usernameField model editable =
     Widget.usernameInput
         (Material.textInput
             (if editable then
-                Material.defaultPalette
+                C.primaryPalette
 
              else
                 C.primaryPalette

@@ -5,12 +5,24 @@ module Colors exposing (..)
 
 import Color exposing (Color, rgb255)
 import Element
+import Element.Background
+import Element.Font
 import Widget.Material exposing (Palette)
 
 
-layoutBackground : Element.Color
-layoutBackground =
-    Element.rgb255 0xF2 0xEF 0xEA
+font : Color -> Element.Attribute msg
+font =
+    Color.toRgba >> Element.fromRgb >> Element.Font.color
+
+
+background : Color -> Element.Attribute msg
+background =
+    Color.toRgba >> Element.fromRgb >> Element.Background.color
+
+
+transparent : Color
+transparent =
+    Color.rgba 0 0 0 0
 
 
 

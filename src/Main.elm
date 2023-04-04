@@ -4,13 +4,17 @@ import Browser
 import Colors
 import Element
 import Element.Background
+import GameMain as GM
 import Http
 import Internal.Tools.Exceptions as X
 import Matrix
 import Model exposing (Model)
 import Msg exposing (Msg)
+import Pieces
 import Task
+import Time
 import View
+import Widget
 
 
 main : Platform.Program () Model Msg
@@ -80,8 +84,7 @@ update msg model =
             in
             case result of
                 Ok vu ->
-                    -- TODO: Implement model here
-                    ( model, Cmd.none )
+                    ( Model.LoggedIn (Matrix.updateWith vu vault) (Model.BrowsingGames Nothing), Cmd.none )
 
                 Err (X.InternetException Http.NetworkError) ->
                     failLoginWith "You have a bad (or no) internet connection. Please try again."
@@ -123,6 +126,18 @@ update msg model =
         ( Model.InitialSync _ _, _ ) ->
             ( model, Cmd.none )
 
+        -- TODO
+        ( Model.LoggedIn vault _, Msg.SyncTime ) ->
+            ( model, Matrix.sync vault |> Task.attempt (Msg.VaultUpdate >> Msg.LoggedIn) )
+
+        ( Model.LoggedIn vault data, Msg.LoggedIn subMsg ) ->
+            case GM.update vault subMsg data of
+                ( newVault, newData, cmd ) ->
+                    ( Model.LoggedIn newVault newData, cmd )
+
+        ( Model.LoggedIn _ _, _ ) ->
+            ( model, Cmd.none )
+
 
 
 -- SUBSCRIPTIONS
@@ -136,6 +151,11 @@ subscriptions model =
 
         Model.InitialSync _ _ ->
             Sub.none
+
+        Model.LoggedIn vault _ ->
+            Msg.SyncTime
+                |> always
+                |> Time.every 1000
 
 
 
@@ -152,11 +172,29 @@ view model =
 
             Model.InitialSync data _ ->
                 View.loginScreen data False
+
+            Model.LoggedIn vault data ->
+                View.loggedInScreen vault data
         )
             |> Element.layout
-                [ Element.centerX
-                , Element.padding 25
-                , Element.Background.color Colors.layoutBackground
-                ]
+                (List.append
+                    [ Element.centerX
+                    , Element.padding 25
+                    , Colors.background Colors.noordstarWhite
+                    ]
+                    ([ case model of
+                        Model.LoggedIn vault (Model.BrowsingGames modal) ->
+                            Maybe.map (View.showModalScreen vault) modal
+
+                        Model.LoggedIn vault (Model.PlayGame modal _) ->
+                            Maybe.map (View.showModalScreen vault) modal
+
+                        _ ->
+                            Nothing
+                     ]
+                        |> List.filterMap identity
+                        |> Widget.singleModal
+                    )
+                )
             |> List.singleton
     }
