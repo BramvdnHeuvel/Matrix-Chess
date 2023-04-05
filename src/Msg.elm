@@ -27,3 +27,4 @@ type LoggedInMsg
     | CreateGame String Matrix.Room.Room
     | BrowseGames
     | JumpToEnd
+    | FlipBoard

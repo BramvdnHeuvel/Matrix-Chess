@@ -95,8 +95,8 @@ baseUrlField model editable =
             [ Element.centerX ]
 
 
-board : Position.Position -> List Square.Square -> Maybe Move.Move -> Element Msg
-board position selectedDestinations lastMove =
+board : Position.Position -> List Square.Square -> Maybe Move.Move -> Bool -> Element Msg
+board position selectedDestinations lastMove flipped =
     SquareFile.all
         |> List.map
             (\file ->
@@ -137,6 +137,15 @@ board position selectedDestinations lastMove =
                                 )
                         )
             )
+        |> (\squares ->
+                if flipped then
+                    squares
+                        |> List.map List.reverse
+                        |> List.reverse
+
+                else
+                    squares
+           )
         |> List.map (Element.column [ Element.width Element.fill, Element.height Element.fill ])
         |> Element.row [ Element.width Element.fill, Element.height Element.fill ]
         |> Element.el
@@ -190,20 +199,40 @@ boardMenu game =
             }
           )
         ]
+        |> Element.el [ Element.width Element.fill ]
 
 
 boardTopMenu : Element Msg
 boardTopMenu =
-    Widget.buttonRow
-        { elementRow = Material.toggleRow
-        , content = Material.outlinedButton C.secondaryPalette
-        }
-        [ ( False
-          , { text = "Back"
-            , icon = getIcon Icons.arrow_back
-            , onPress = Just <| Msg.LoggedIn <| Msg.BrowseGames
+    Element.row
+        [ Element.width Element.fill
+        ]
+        -- Left buttons
+        [ Widget.buttonRow
+            { elementRow = Material.toggleRow
+            , content = Material.outlinedButton C.secondaryPalette
             }
-          )
+            [ ( False
+              , { text = "Back"
+                , icon = getIcon Icons.arrow_back
+                , onPress = Just <| Msg.LoggedIn <| Msg.BrowseGames
+                }
+              )
+            ]
+
+        -- Right buttons
+        , Widget.buttonRow
+            { elementRow = Material.toggleRow
+            , content = Material.outlinedButton C.secondaryPalette
+            }
+            [ ( False
+              , { text = "Flip board"
+                , icon = getIcon Icons.sync
+                , onPress = Just <| Msg.LoggedIn <| Msg.FlipBoard
+                }
+              )
+            ]
+            |> Element.el [ Element.alignRight ]
         ]
 
 
@@ -500,7 +529,7 @@ loggedInScreen vault model =
                                     { text = Chess.opponent vault summary ++ " - turn " ++ (String.fromInt <| List.length <| Game.moves data.game)
                                     , onPress = Just <| Msg.LoggedIn <| Msg.ViewGame summary
                                     , image =
-                                        board (Game.position data.game) [] (Game.previousMove data.game)
+                                        board (Game.position data.game) [] (Game.previousMove data.game) (Matrix.username vault == Just summary.data.white)
                                             |> Element.el [ Element.width (Element.px 40), Element.height (Element.px 40) ]
                                     , content =
                                         \{ size, color } ->
@@ -551,6 +580,7 @@ loggedInScreen vault model =
                             |> List.map Move.to
                 )
                 (Game.previousMove data.game.data.game)
+                data.boardFlipped
             , boardMenu data.game.data.game
             ]
                 |> Element.column (Material.cardAttributes Material.defaultPalette)

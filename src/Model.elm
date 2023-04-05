@@ -40,6 +40,7 @@ type GameScreen
         , selected : Maybe Square.Square
         , mayMoveBlack : Bool
         , mayMoveWhite : Bool
+        , boardFlipped : Bool
         }
 
 

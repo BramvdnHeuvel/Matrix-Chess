@@ -88,6 +88,7 @@ update vault msg model =
                 , selected = Nothing
                 , mayMoveBlack = Matrix.username vault == Just summary.data.black
                 , mayMoveWhite = Matrix.username vault == Just summary.data.white
+                , boardFlipped = Matrix.username vault == Just summary.data.white
                 }
             , Cmd.none
             )
@@ -220,6 +221,9 @@ update vault msg model =
                                 { pg | selected = Nothing, game = { game | data = { data | game = Game.toEnd data.game } } }
                             , Cmd.none
                             )
+
+        ( Msg.FlipBoard, Model.PlayGame modal pg ) ->
+            ( vault, Model.PlayGame modal { pg | boardFlipped = not pg.boardFlipped }, Cmd.none )
 
 
 

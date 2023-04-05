@@ -806,7 +806,7 @@ opponent vault { data, room } =
             data.black
 
         Just userId ->
-            if userId == data.black && userId == data.black then
+            if userId == data.black && userId == data.white then
                 "Against yourself"
 
             else if userId == data.black then
