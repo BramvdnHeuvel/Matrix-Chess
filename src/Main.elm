@@ -153,7 +153,7 @@ subscriptions model =
         Model.LoggedIn _ _ ->
             Msg.SyncTime
                 |> always
-                |> Time.every 1000
+                |> Time.every 2000
 
 
 

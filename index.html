@@ -6122,7 +6122,7 @@ var $author$project$Main$subscriptions = function (model) {
 		default:
 			return A2(
 				$elm$time$Time$every,
-				1000,
+				2000,
 				$elm$core$Basics$always($author$project$Msg$SyncTime));
 	}
 };
@@ -6227,6 +6227,7 @@ var $author$project$Internal$Tools$Hashdict$empty = function (hash) {
 	return $author$project$Internal$Tools$Hashdict$Hashdict(
 		{hash: hash, values: $elm$core$Dict$empty});
 };
+var $author$project$Internal$Config$Leaking$originServerTs = $elm$time$Time$millisToPosix(0);
 var $author$project$Internal$Values$Room$roomId = function (_v0) {
 	var room = _v0.a;
 	return room.roomId;
@@ -6235,6 +6236,7 @@ var $author$project$Internal$Values$Vault$init = $author$project$Internal$Values
 	{
 		accountData: $elm$core$Dict$empty,
 		invites: _List_Nil,
+		latestUpdate: $author$project$Internal$Config$Leaking$originServerTs,
 		rooms: $author$project$Internal$Tools$Hashdict$empty($author$project$Internal$Values$Room$roomId),
 		since: $elm$core$Maybe$Nothing
 	});
@@ -9479,7 +9481,7 @@ var $author$project$Internal$Config$Leaking$transactionId = 'elm' + $Evelios$elm
 	$Evelios$elm_hash$Hash$fromString('leaked_transactionId'));
 var $author$project$Internal$Config$Leaking$versions = _List_Nil;
 var $author$project$Internal$Tools$Context$init = $author$project$Internal$Tools$Context$Context(
-	{accessToken: $author$project$Internal$Config$Leaking$accessToken, baseUrl: $author$project$Internal$Config$Leaking$baseUrl, loginParts: $elm$core$Maybe$Nothing, sentEvent: $author$project$Internal$Config$Leaking$eventId, transactionId: $author$project$Internal$Config$Leaking$transactionId, userId: $author$project$Internal$Config$Leaking$sender, versions: $author$project$Internal$Config$Leaking$versions});
+	{accessToken: $author$project$Internal$Config$Leaking$accessToken, baseUrl: $author$project$Internal$Config$Leaking$baseUrl, loginParts: $elm$core$Maybe$Nothing, sentEvent: $author$project$Internal$Config$Leaking$eventId, timestamp: $author$project$Internal$Config$Leaking$originServerTs, transactionId: $author$project$Internal$Config$Leaking$transactionId, userId: $author$project$Internal$Config$Leaking$sender, versions: $author$project$Internal$Config$Leaking$versions});
 var $author$project$Internal$Api$Chain$toTask = function (f1) {
 	return A2(
 		$elm$core$Task$map,
@@ -13375,7 +13377,10 @@ var $author$project$Internal$Values$Timeline$mostRecentEvents = function (_v0) {
 };
 var $author$project$Internal$Values$Room$mostRecentEvents = function (_v0) {
 	var room = _v0.a;
-	return $author$project$Internal$Values$Timeline$mostRecentEvents(room.timeline);
+	return A2(
+		$elm$core$List$append,
+		$author$project$Internal$Values$Timeline$mostRecentEvents(room.timeline),
+		room.tempEvents);
 };
 var $author$project$Internal$Event$Event = function (a) {
 	return {$: 'Event', a: a};
@@ -13918,6 +13923,32 @@ var $author$project$Internal$Api$VaultUpdate$getEvent = function (input) {
 		$author$project$Internal$Api$GetEvent$Main$getEvent,
 		input);
 };
+var $author$project$Internal$Api$VaultUpdate$CurrentTimestamp = function (a) {
+	return {$: 'CurrentTimestamp', a: a};
+};
+var $author$project$Internal$Tools$Context$setTimestamp = F2(
+	function (timestamp, _v0) {
+		var data = _v0.a;
+		return $author$project$Internal$Tools$Context$Context(
+			_Utils_update(
+				data,
+				{timestamp: timestamp}));
+	});
+var $author$project$Internal$Api$VaultUpdate$getTimestamp = A3(
+	$author$project$Internal$Api$VaultUpdate$toChain,
+	function (output) {
+		return $author$project$Internal$Api$Chain$TaskChainPiece(
+			{
+				contextChange: $author$project$Internal$Tools$Context$setTimestamp(output),
+				messages: _List_fromArray(
+					[
+						$author$project$Internal$Api$VaultUpdate$CurrentTimestamp(output)
+					])
+			});
+	},
+	$elm$core$Basics$always(
+		$elm$core$Basics$always($elm$time$Time$now)),
+	_Utils_Tuple0);
 var $chain_partners$elm_bignum$Integer$addMagnitudes_ = F3(
 	function (m1, m2, acc) {
 		addMagnitudes_:
@@ -14914,24 +14945,27 @@ var $author$project$Internal$Api$Task$sendMessageEvent = F2(
 					$author$project$Internal$Api$VaultUpdate$sendMessageEvent(
 						{content: content, eventType: eventType, roomId: roomId}),
 					A2(
-						$author$project$Internal$Api$VaultUpdate$makeVBAT,
-						function (now) {
-							return $Evelios$elm_hash$Hash$toString(
-								A3(
-									$elm$core$List$foldl,
-									$Evelios$elm_hash$Hash$independent,
-									$Evelios$elm_hash$Hash$fromString('send message'),
-									_List_fromArray(
-										[
-											$Evelios$elm_hash$Hash$fromInt(now),
-											$Evelios$elm_hash$Hash$fromString(
-											A2($elm$json$Json$Encode$encode, 0, content)),
-											$Evelios$elm_hash$Hash$fromString(eventType),
-											$Evelios$elm_hash$Hash$fromString(extraTransactionNoise),
-											$Evelios$elm_hash$Hash$fromString(roomId)
-										])));
-						},
-						cred))));
+						$author$project$Internal$Api$Chain$andThen,
+						$author$project$Internal$Api$VaultUpdate$getTimestamp,
+						A2(
+							$author$project$Internal$Api$VaultUpdate$makeVBAT,
+							function (now) {
+								return $Evelios$elm_hash$Hash$toString(
+									A3(
+										$elm$core$List$foldl,
+										$Evelios$elm_hash$Hash$independent,
+										$Evelios$elm_hash$Hash$fromString('send message'),
+										_List_fromArray(
+											[
+												$Evelios$elm_hash$Hash$fromInt(now),
+												$Evelios$elm_hash$Hash$fromString(
+												A2($elm$json$Json$Encode$encode, 0, content)),
+												$Evelios$elm_hash$Hash$fromString(eventType),
+												$Evelios$elm_hash$Hash$fromString(extraTransactionNoise),
+												$Evelios$elm_hash$Hash$fromString(roomId)
+											])));
+							},
+							cred)))));
 	});
 var $author$project$Internal$Api$VaultUpdate$StateEventSent = F2(
 	function (a, b) {
@@ -15074,7 +15108,10 @@ var $author$project$Internal$Api$Task$sendStateEvent = F2(
 				A2(
 					$author$project$Internal$Api$Chain$andThen,
 					$author$project$Internal$Api$VaultUpdate$sendStateEvent(data),
-					$author$project$Internal$Api$VaultUpdate$makeVBA(cred))));
+					A2(
+						$author$project$Internal$Api$Chain$andThen,
+						$author$project$Internal$Api$VaultUpdate$getTimestamp,
+						$author$project$Internal$Api$VaultUpdate$makeVBA(cred)))));
 	});
 var $author$project$Internal$Room$sendEvent = F2(
 	function (_v0, _v1) {
@@ -15142,7 +15179,6 @@ var $author$project$Internal$Api$SetAccountData$Api$setAccountDataV1 = F2(
 				$author$project$Internal$Api$Request$withAttributes(
 					_List_fromArray(
 						[
-							$author$project$Internal$Api$Request$accessToken,
 							$author$project$Internal$Api$Request$accessToken,
 							A2($author$project$Internal$Api$Request$replaceInUrl, 'type', eventType),
 							A2(
@@ -15393,6 +15429,7 @@ var $author$project$Internal$Values$Room$addEvents = F2(
 				room,
 				{
 					events: A3($elm$core$List$foldl, $author$project$Internal$Tools$Hashdict$insert, room.events, events),
+					tempEvents: _List_Nil,
 					timeline: A2($author$project$Internal$Values$Timeline$addNewEvents, data, room.timeline)
 				}));
 	});
@@ -15440,6 +15477,26 @@ var $author$project$Internal$Values$Vault$addSince = F2(
 				data,
 				{
 					since: $elm$core$Maybe$Just(since)
+				}));
+	});
+var $author$project$Internal$Values$Event$IEvent = function (a) {
+	return {$: 'IEvent', a: a};
+};
+var $author$project$Internal$Values$Event$init = $author$project$Internal$Values$Event$IEvent;
+var $author$project$Internal$Values$Room$addTemporaryEvent = F2(
+	function (data, _v0) {
+		var room = _v0.a;
+		var tempEvents = room.tempEvents;
+		return $author$project$Internal$Values$Room$IRoom(
+			_Utils_update(
+				room,
+				{
+					tempEvents: A2(
+						$elm$core$List$append,
+						tempEvents,
+						$elm$core$List$singleton(
+							$author$project$Internal$Values$Event$init(
+								{content: data.content, eventId: data.eventId, eventType: data.eventType, originServerTs: data.originServerTs, roomId: room.roomId, sender: data.sender, stateKey: data.stateKey, unsigned: $elm$core$Maybe$Nothing})))
 				}));
 	});
 var $author$project$Internal$Api$Credentials$addVersions = F2(
@@ -15494,10 +15551,28 @@ var $author$project$Internal$Api$Credentials$addWhoAmI = F2(
 					access: A2($author$project$Internal$Tools$LoginValues$addWhoAmI, whoami, access)
 				}));
 	});
-var $author$project$Internal$Values$Event$IEvent = function (a) {
-	return {$: 'IEvent', a: a};
+var $author$project$Internal$Tools$LoginValues$getUserId = function (t) {
+	switch (t.$) {
+		case 'NoAccess':
+			return $elm$core$Maybe$Nothing;
+		case 'RawAccessToken':
+			return $elm$core$Maybe$Nothing;
+		case 'DetailedAccessToken':
+			var userId = t.a.userId;
+			return $elm$core$Maybe$Just(userId);
+		default:
+			var userId = t.a.userId;
+			return userId;
+	}
 };
-var $author$project$Internal$Values$Event$init = $author$project$Internal$Values$Event$IEvent;
+var $author$project$Internal$Api$Credentials$getUserId = function (_v0) {
+	var access = _v0.a.access;
+	return $author$project$Internal$Tools$LoginValues$getUserId(access);
+};
+var $author$project$Internal$Vault$getUsername = function (_v0) {
+	var context = _v0.a.context;
+	return $author$project$Internal$Api$Credentials$getUserId(context);
+};
 var $author$project$Internal$Event$initFromClientEventWithoutRoomId = F2(
 	function (rId, output) {
 		return $author$project$Internal$Values$Event$init(
@@ -15664,6 +15739,7 @@ var $author$project$Internal$Room$initFromJoinedRoom = F2(
 								},
 								jroom.timeline)))),
 				roomId: data.roomId,
+				tempEvents: _List_Nil,
 				timeline: A2(
 					$elm$core$Maybe$withDefault,
 					$author$project$Internal$Values$Timeline$newFromEvents(
@@ -15906,6 +15982,33 @@ var $author$project$Internal$Vault$insertInternalRoom = F2(
 				}));
 	});
 var $author$project$Internal$Vault$insertRoom = A2($elm$core$Basics$composeR, $author$project$Internal$Room$withoutCredentials, $author$project$Internal$Vault$insertInternalRoom);
+var $author$project$Internal$Values$Vault$insertTimestamp = F2(
+	function (time, _v0) {
+		var data = _v0.a;
+		return $author$project$Internal$Values$Vault$IVault(
+			_Utils_update(
+				data,
+				{latestUpdate: time}));
+	});
+var $author$project$Internal$Values$Vault$lastUpdate = function (_v0) {
+	var latestUpdate = _v0.a.latestUpdate;
+	return latestUpdate;
+};
+var $elm$core$Maybe$map2 = F3(
+	function (func, ma, mb) {
+		if (ma.$ === 'Nothing') {
+			return $elm$core$Maybe$Nothing;
+		} else {
+			var a = ma.a;
+			if (mb.$ === 'Nothing') {
+				return $elm$core$Maybe$Nothing;
+			} else {
+				var b = mb.a;
+				return $elm$core$Maybe$Just(
+					A2(func, a, b));
+			}
+		}
+	});
 var $elm$core$Tuple$mapSecond = F2(
 	function (func, _v0) {
 		var x = _v0.a;
@@ -15950,6 +16053,13 @@ var $author$project$Internal$Vault$updateWith = F2(
 			case 'BanUser':
 				var input = vaultUpdate.a;
 				return vault;
+			case 'CurrentTimestamp':
+				var t = vaultUpdate.a;
+				return $author$project$Internal$Vault$Vault(
+					{
+						context: context,
+						cred: A2($author$project$Internal$Values$Vault$insertTimestamp, t, cred)
+					});
 			case 'GetEvent':
 				var input = vaultUpdate.a;
 				var output = vaultUpdate.b;
@@ -16054,11 +16164,78 @@ var $author$project$Internal$Vault$updateWith = F2(
 					}(
 						A2($author$project$Internal$Values$Vault$removeInvite, input.roomId, cred)));
 			case 'MessageEventSent':
-				return vault;
+				var content = vaultUpdate.a.content;
+				var eventType = vaultUpdate.a.eventType;
+				var roomId = vaultUpdate.a.roomId;
+				var eventId = vaultUpdate.b.eventId;
+				return A2(
+					$elm$core$Maybe$withDefault,
+					vault,
+					A2(
+						$elm$core$Maybe$map,
+						A2(
+							$elm$core$Basics$composeR,
+							$author$project$Internal$Room$withCredentials(context),
+							A2(
+								$elm$core$Basics$composeR,
+								$author$project$Internal$Vault$insertRoom,
+								$elm$core$Basics$apR(vault))),
+						A3(
+							$elm$core$Maybe$map2,
+							F2(
+								function (room, sender) {
+									return A2(
+										$author$project$Internal$Values$Room$addTemporaryEvent,
+										{
+											content: content,
+											eventId: eventId,
+											eventType: eventType,
+											originServerTs: $author$project$Internal$Values$Vault$lastUpdate(cred),
+											sender: sender,
+											stateKey: $elm$core$Maybe$Nothing
+										},
+										$author$project$Internal$Room$withoutCredentials(room));
+								}),
+							A2($author$project$Internal$Vault$getRoomById, roomId, vault),
+							$author$project$Internal$Vault$getUsername(vault))));
 			case 'RedactedEvent':
 				return vault;
 			case 'StateEventSent':
-				return vault;
+				var content = vaultUpdate.a.content;
+				var eventType = vaultUpdate.a.eventType;
+				var roomId = vaultUpdate.a.roomId;
+				var stateKey = vaultUpdate.a.stateKey;
+				var eventId = vaultUpdate.b.eventId;
+				return A2(
+					$elm$core$Maybe$withDefault,
+					vault,
+					A2(
+						$elm$core$Maybe$map,
+						A2(
+							$elm$core$Basics$composeR,
+							$author$project$Internal$Room$withCredentials(context),
+							A2(
+								$elm$core$Basics$composeR,
+								$author$project$Internal$Vault$insertRoom,
+								$elm$core$Basics$apR(vault))),
+						A3(
+							$elm$core$Maybe$map2,
+							F2(
+								function (room, sender) {
+									return A2(
+										$author$project$Internal$Values$Room$addTemporaryEvent,
+										{
+											content: content,
+											eventId: eventId,
+											eventType: eventType,
+											originServerTs: $author$project$Internal$Values$Vault$lastUpdate(cred),
+											sender: sender,
+											stateKey: $elm$core$Maybe$Just(stateKey)
+										},
+										$author$project$Internal$Room$withoutCredentials(room));
+								}),
+							A2($author$project$Internal$Vault$getRoomById, roomId, vault),
+							$author$project$Internal$Vault$getUsername(vault))));
 			case 'SyncUpdate':
 				var input = vaultUpdate.a;
 				var output = vaultUpdate.b;
@@ -16251,28 +16428,6 @@ var $author$project$Internal$Vault$updateWith = F2(
 		}
 	});
 var $author$project$Matrix$updateWith = $author$project$Internal$Vault$updateWith;
-var $author$project$Internal$Tools$LoginValues$getUserId = function (t) {
-	switch (t.$) {
-		case 'NoAccess':
-			return $elm$core$Maybe$Nothing;
-		case 'RawAccessToken':
-			return $elm$core$Maybe$Nothing;
-		case 'DetailedAccessToken':
-			var userId = t.a.userId;
-			return $elm$core$Maybe$Just(userId);
-		default:
-			var userId = t.a.userId;
-			return userId;
-	}
-};
-var $author$project$Internal$Api$Credentials$getUserId = function (_v0) {
-	var access = _v0.a.access;
-	return $author$project$Internal$Tools$LoginValues$getUserId(access);
-};
-var $author$project$Internal$Vault$getUsername = function (_v0) {
-	var context = _v0.a.context;
-	return $author$project$Internal$Api$Credentials$getUserId(context);
-};
 var $author$project$Matrix$username = $author$project$Internal$Vault$getUsername;
 var $author$project$GameMain$update = F3(
 	function (vault, msg, model) {
@@ -16482,7 +16637,17 @@ var $author$project$GameMain$update = F3(
 									var oldSquare = selected.a;
 									return A2(
 										$elm$core$Maybe$withDefault,
-										doNothing,
+										_Utils_Tuple3(
+											vault,
+											A2(
+												$author$project$Model$PlayGame,
+												modal,
+												_Utils_update(
+													pg,
+													{
+														selected: $elm$core$Maybe$Just(square)
+													})),
+											$elm$core$Platform$Cmd$none),
 										A2(
 											$elm$core$Maybe$map,
 											function (move) {
@@ -23435,6 +23600,7 @@ var $avh4$elm_color$Color$rgb255 = F3(
 			$avh4$elm_color$Color$scaleFrom255(b),
 			1.0);
 	});
+var $author$project$Colors$noordstarBlue = A3($avh4$elm_color$Color$rgb255, 66, 127, 240);
 var $author$project$Colors$noordstarGreen = A3($avh4$elm_color$Color$rgb255, 94, 164, 147);
 var $author$project$Colors$noordstarWhite = A3($avh4$elm_color$Color$rgb255, 242, 239, 234);
 var $author$project$Colors$noordstarYellow = A3($avh4$elm_color$Color$rgb255, 210, 208, 36);
@@ -23520,10 +23686,7 @@ var $author$project$View$board = F4(
 								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
 								$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill)
 							])),
-					function (squares) {
-						return flipped ? $elm$core$List$reverse(
-							A2($elm$core$List$map, $elm$core$List$reverse, squares)) : squares;
-					}(
+					(flipped ? $elm$core$List$map($elm$core$List$reverse) : $elm$core$List$reverse)(
 						A2(
 							$elm$core$List$map,
 							function (file) {
@@ -23531,14 +23694,14 @@ var $author$project$View$board = F4(
 									$elm$core$List$map,
 									function (rank) {
 										var square = A2($pilatch$elm_chess$Square$make, file, rank);
-										var backgroundColor = _Utils_eq(
+										var backgroundColor = A2($elm$core$List$member, square, selectedDestinations) ? $author$project$Colors$background($author$project$Colors$noordstarBlue) : (_Utils_eq(
 											A2($elm$core$Maybe$map, $pilatch$elm_chess$Move$from, lastMove),
 											$elm$core$Maybe$Just(square)) ? $author$project$Colors$background($author$project$Colors$noordstarYellow) : (_Utils_eq(
 											A2($elm$core$Maybe$map, $pilatch$elm_chess$Move$to, lastMove),
 											$elm$core$Maybe$Just(square)) ? $author$project$Colors$background($author$project$Colors$noordstarYellow) : ((!A2(
 											$elm$core$Basics$modBy,
 											2,
-											A2($pilatch$elm_chess$Square$fileDistance, $pilatch$elm_chess$Square$a1, square) + A2($pilatch$elm_chess$Square$rankDistance, $pilatch$elm_chess$Square$a1, square))) ? $author$project$Colors$background($author$project$Colors$noordstarWhite) : $author$project$Colors$background($author$project$Colors$noordstarGreen)));
+											A2($pilatch$elm_chess$Square$fileDistance, $pilatch$elm_chess$Square$a1, square) + A2($pilatch$elm_chess$Square$rankDistance, $pilatch$elm_chess$Square$a1, square))) ? $author$project$Colors$background($author$project$Colors$noordstarWhite) : $author$project$Colors$background($author$project$Colors$noordstarGreen))));
 										return A2(
 											$mdgriffith$elm_ui$Element$el,
 											_List_fromArray(
@@ -24581,7 +24744,6 @@ var $Orasund$elm_ui_widgets$Internal$Material$Button$outlinedButton = function (
 var $Orasund$elm_ui_widgets$Widget$Material$outlinedButton = $Orasund$elm_ui_widgets$Internal$Material$Button$outlinedButton;
 var $avh4$elm_color$Color$black = A4($avh4$elm_color$Color$RgbaSpace, 0 / 255, 0 / 255, 0 / 255, 1.0);
 var $author$project$Colors$noordstarRed = A3($avh4$elm_color$Color$rgb255, 176, 0, 0);
-var $author$project$Colors$noordstarBlue = A3($avh4$elm_color$Color$rgb255, 66, 127, 240);
 var $author$project$Colors$primaryColor = $author$project$Colors$noordstarBlue;
 var $author$project$Colors$secondaryColor = A3($avh4$elm_color$Color$rgb255, 255, 138, 101);
 var $avh4$elm_color$Color$white = A4($avh4$elm_color$Color$RgbaSpace, 255 / 255, 255 / 255, 255 / 255, 1.0);
@@ -25104,7 +25266,6 @@ var $author$project$Chess$myTurn = F2(
 				},
 				$author$project$Matrix$username(vault)));
 	});
-var $elm$core$Debug$log = _Debug_log;
 var $author$project$Internal$Values$StateManager$getStateEvent = function (_v0) {
 	var eventType = _v0.eventType;
 	var stateKey = _v0.stateKey;
@@ -25138,22 +25299,19 @@ var $author$project$Chess$opponent = F2(
 				$elm$core$Maybe$withDefault,
 				u,
 				A2(
-					$elm$core$Debug$log,
-					'Username of ' + (u + ' : '),
+					$elm$core$Maybe$andThen,
 					A2(
-						$elm$core$Maybe$andThen,
+						$elm$core$Basics$composeR,
+						$elm$json$Json$Decode$decodeValue(
+							A2($elm$json$Json$Decode$field, 'displayname', $elm$json$Json$Decode$string)),
+						$elm$core$Result$toMaybe),
+					A2(
+						$elm$core$Maybe$map,
+						$author$project$Matrix$Event$content,
 						A2(
-							$elm$core$Basics$composeR,
-							$elm$json$Json$Decode$decodeValue(
-								A2($elm$json$Json$Decode$field, 'displayname', $elm$json$Json$Decode$string)),
-							$elm$core$Result$toMaybe),
-						A2(
-							$elm$core$Maybe$map,
-							$author$project$Matrix$Event$content,
-							A2(
-								$author$project$Matrix$Room$stateEvent,
-								{eventType: 'm.room.member', stateKey: u},
-								room)))));
+							$author$project$Matrix$Room$stateEvent,
+							{eventType: 'm.room.member', stateKey: u},
+							room))));
 		};
 		var _v1 = $author$project$Matrix$username(vault);
 		if (_v1.$ === 'Nothing') {

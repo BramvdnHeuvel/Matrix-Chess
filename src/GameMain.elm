@@ -181,7 +181,7 @@ update vault msg model =
                                                     |> toCmd
                                                 )
                                             )
-                                        |> Maybe.withDefault doNothing
+                                        |> Maybe.withDefault ( vault, Model.PlayGame modal { pg | selected = Just square }, Cmd.none )
 
                         else
                             doNothing

@@ -110,7 +110,10 @@ board position selectedDestinations lastMove flipped =
 
                                 backgroundColor : Element.Attribute msg
                                 backgroundColor =
-                                    if Maybe.map Move.from lastMove == Just square then
+                                    if List.member square selectedDestinations then
+                                        C.background C.noordstarBlue
+
+                                    else if Maybe.map Move.from lastMove == Just square then
                                         C.background C.noordstarYellow
 
                                     else if Maybe.map Move.to lastMove == Just square then
@@ -137,14 +140,11 @@ board position selectedDestinations lastMove flipped =
                                 )
                         )
             )
-        |> (\squares ->
-                if flipped then
-                    squares
-                        |> List.map List.reverse
-                        |> List.reverse
+        |> (if flipped then
+                List.map List.reverse
 
-                else
-                    squares
+            else
+                List.reverse
            )
         |> List.map (Element.column [ Element.width Element.fill, Element.height Element.fill ])
         |> Element.row [ Element.width Element.fill, Element.height Element.fill ]
