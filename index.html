@@ -16363,6 +16363,9 @@ var $author$project$GameMain$update = F3(
 							$author$project$Model$PlayGame,
 							$elm$core$Maybe$Nothing,
 							{
+								boardFlipped: _Utils_eq(
+									$author$project$Matrix$username(vault),
+									$elm$core$Maybe$Just(summary.data.white)),
 								game: summary,
 								mayMoveBlack: _Utils_eq(
 									$author$project$Matrix$username(vault),
@@ -16598,7 +16601,7 @@ var $author$project$GameMain$update = F3(
 									})),
 							$elm$core$Platform$Cmd$none);
 					}
-				default:
+				case 'JumpToEnd':
 					if (_v0.b.$ === 'BrowsingGames') {
 						break _v0$7;
 					} else {
@@ -16627,6 +16630,24 @@ var $author$project$GameMain$update = F3(
 											}),
 										selected: $elm$core$Maybe$Nothing
 									})),
+							$elm$core$Platform$Cmd$none);
+					}
+				default:
+					if (_v0.b.$ === 'BrowsingGames') {
+						break _v0$7;
+					} else {
+						var _v26 = _v0.a;
+						var _v27 = _v0.b;
+						var modal = _v27.a;
+						var pg = _v27.b;
+						return _Utils_Tuple3(
+							vault,
+							A2(
+								$author$project$Model$PlayGame,
+								modal,
+								_Utils_update(
+									pg,
+									{boardFlipped: !pg.boardFlipped})),
 							$elm$core$Platform$Cmd$none);
 					}
 			}
@@ -23475,8 +23496,8 @@ var $mdgriffith$elm_ui$Element$row = F2(
 	});
 var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
 var $elm$html$Html$Attributes$style = $elm$virtual_dom$VirtualDom$style;
-var $author$project$View$board = F3(
-	function (position, selectedDestinations, lastMove) {
+var $author$project$View$board = F4(
+	function (position, selectedDestinations, lastMove, flipped) {
 		return A2(
 			$mdgriffith$elm_ui$Element$el,
 			_List_fromArray(
@@ -23499,45 +23520,49 @@ var $author$project$View$board = F3(
 								$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
 								$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill)
 							])),
-					A2(
-						$elm$core$List$map,
-						function (file) {
-							return A2(
-								$elm$core$List$map,
-								function (rank) {
-									var square = A2($pilatch$elm_chess$Square$make, file, rank);
-									var backgroundColor = _Utils_eq(
-										A2($elm$core$Maybe$map, $pilatch$elm_chess$Move$from, lastMove),
-										$elm$core$Maybe$Just(square)) ? $author$project$Colors$background($author$project$Colors$noordstarYellow) : (_Utils_eq(
-										A2($elm$core$Maybe$map, $pilatch$elm_chess$Move$to, lastMove),
-										$elm$core$Maybe$Just(square)) ? $author$project$Colors$background($author$project$Colors$noordstarYellow) : ((!A2(
-										$elm$core$Basics$modBy,
-										2,
-										A2($pilatch$elm_chess$Square$fileDistance, $pilatch$elm_chess$Square$a1, square) + A2($pilatch$elm_chess$Square$rankDistance, $pilatch$elm_chess$Square$a1, square))) ? $author$project$Colors$background($author$project$Colors$noordstarWhite) : $author$project$Colors$background($author$project$Colors$noordstarGreen)));
-									return A2(
-										$mdgriffith$elm_ui$Element$el,
-										_List_fromArray(
-											[
-												$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
-												$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
-												backgroundColor,
-												$mdgriffith$elm_ui$Element$Events$onClick(
-												$author$project$Msg$LoggedIn(
-													$author$project$Msg$ClickSquare(square)))
-											]),
-										function () {
-											var _v0 = A2($pilatch$elm_chess$Position$pieceOn, square, position);
-											if (_v0.$ === 'Nothing') {
-												return $mdgriffith$elm_ui$Element$none;
-											} else {
-												var piece = _v0.a;
-												return $author$project$View$chessPiece(piece);
-											}
-										}());
-								},
-								$pilatch$elm_chess$SquareRank$all);
-						},
-						$pilatch$elm_chess$SquareFile$all))));
+					function (squares) {
+						return flipped ? $elm$core$List$reverse(
+							A2($elm$core$List$map, $elm$core$List$reverse, squares)) : squares;
+					}(
+						A2(
+							$elm$core$List$map,
+							function (file) {
+								return A2(
+									$elm$core$List$map,
+									function (rank) {
+										var square = A2($pilatch$elm_chess$Square$make, file, rank);
+										var backgroundColor = _Utils_eq(
+											A2($elm$core$Maybe$map, $pilatch$elm_chess$Move$from, lastMove),
+											$elm$core$Maybe$Just(square)) ? $author$project$Colors$background($author$project$Colors$noordstarYellow) : (_Utils_eq(
+											A2($elm$core$Maybe$map, $pilatch$elm_chess$Move$to, lastMove),
+											$elm$core$Maybe$Just(square)) ? $author$project$Colors$background($author$project$Colors$noordstarYellow) : ((!A2(
+											$elm$core$Basics$modBy,
+											2,
+											A2($pilatch$elm_chess$Square$fileDistance, $pilatch$elm_chess$Square$a1, square) + A2($pilatch$elm_chess$Square$rankDistance, $pilatch$elm_chess$Square$a1, square))) ? $author$project$Colors$background($author$project$Colors$noordstarWhite) : $author$project$Colors$background($author$project$Colors$noordstarGreen)));
+										return A2(
+											$mdgriffith$elm_ui$Element$el,
+											_List_fromArray(
+												[
+													$mdgriffith$elm_ui$Element$height($mdgriffith$elm_ui$Element$fill),
+													$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill),
+													backgroundColor,
+													$mdgriffith$elm_ui$Element$Events$onClick(
+													$author$project$Msg$LoggedIn(
+														$author$project$Msg$ClickSquare(square)))
+												]),
+											function () {
+												var _v0 = A2($pilatch$elm_chess$Position$pieceOn, square, position);
+												if (_v0.$ === 'Nothing') {
+													return $mdgriffith$elm_ui$Element$none;
+												} else {
+													var piece = _v0.a;
+													return $author$project$View$chessPiece(piece);
+												}
+											}());
+									},
+									$pilatch$elm_chess$SquareRank$all);
+							},
+							$pilatch$elm_chess$SquareFile$all)))));
 	});
 var $author$project$Msg$JumpToEnd = {$: 'JumpToEnd'};
 var $author$project$Msg$MoveBackwards = {$: 'MoveBackwards'};
@@ -24572,64 +24597,125 @@ var $author$project$Colors$secondaryPalette = {
 };
 var $author$project$View$boardMenu = function (game) {
 	return A2(
-		$Orasund$elm_ui_widgets$Widget$buttonRow,
-		{
-			content: $Orasund$elm_ui_widgets$Widget$Material$outlinedButton($author$project$Colors$secondaryPalette),
-			elementRow: $Orasund$elm_ui_widgets$Widget$Material$buttonRow
-		},
+		$mdgriffith$elm_ui$Element$el,
 		_List_fromArray(
 			[
-				_Utils_Tuple2(
-				false,
-				{
-					icon: $author$project$View$getIcon($icidasset$elm_material_icons$Material$Icons$flag),
-					onPress: $elm$core$Maybe$Nothing,
-					text: 'Resign'
-				}),
-				_Utils_Tuple2(
-				$pilatch$elm_chess$Game$isAtBeginning(game),
-				{
-					icon: $author$project$View$getIcon($icidasset$elm_material_icons$Material$Icons$arrow_back),
-					onPress: $pilatch$elm_chess$Game$isAtBeginning(game) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
-						$author$project$Msg$LoggedIn($author$project$Msg$MoveBackwards)),
-					text: 'Previous'
-				}),
-				_Utils_Tuple2(
-				$pilatch$elm_chess$Game$isAtEnd(game),
-				{
-					icon: $author$project$View$getIcon($icidasset$elm_material_icons$Material$Icons$arrow_forward),
-					onPress: $pilatch$elm_chess$Game$isAtEnd(game) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
-						$author$project$Msg$LoggedIn($author$project$Msg$MoveForward)),
-					text: 'Next'
-				}),
-				_Utils_Tuple2(
-				$pilatch$elm_chess$Game$isAtEnd(game),
-				{
-					icon: $author$project$View$getIcon($icidasset$elm_material_icons$Material$Icons$fast_forward),
-					onPress: $pilatch$elm_chess$Game$isAtEnd(game) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
-						$author$project$Msg$LoggedIn($author$project$Msg$JumpToEnd)),
-					text: 'Now'
-				})
-			]));
+				$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+			]),
+		A2(
+			$Orasund$elm_ui_widgets$Widget$buttonRow,
+			{
+				content: $Orasund$elm_ui_widgets$Widget$Material$outlinedButton($author$project$Colors$secondaryPalette),
+				elementRow: $Orasund$elm_ui_widgets$Widget$Material$buttonRow
+			},
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					false,
+					{
+						icon: $author$project$View$getIcon($icidasset$elm_material_icons$Material$Icons$flag),
+						onPress: $elm$core$Maybe$Nothing,
+						text: 'Resign'
+					}),
+					_Utils_Tuple2(
+					$pilatch$elm_chess$Game$isAtBeginning(game),
+					{
+						icon: $author$project$View$getIcon($icidasset$elm_material_icons$Material$Icons$arrow_back),
+						onPress: $pilatch$elm_chess$Game$isAtBeginning(game) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
+							$author$project$Msg$LoggedIn($author$project$Msg$MoveBackwards)),
+						text: 'Previous'
+					}),
+					_Utils_Tuple2(
+					$pilatch$elm_chess$Game$isAtEnd(game),
+					{
+						icon: $author$project$View$getIcon($icidasset$elm_material_icons$Material$Icons$arrow_forward),
+						onPress: $pilatch$elm_chess$Game$isAtEnd(game) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
+							$author$project$Msg$LoggedIn($author$project$Msg$MoveForward)),
+						text: 'Next'
+					}),
+					_Utils_Tuple2(
+					$pilatch$elm_chess$Game$isAtEnd(game),
+					{
+						icon: $author$project$View$getIcon($icidasset$elm_material_icons$Material$Icons$fast_forward),
+						onPress: $pilatch$elm_chess$Game$isAtEnd(game) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
+							$author$project$Msg$LoggedIn($author$project$Msg$JumpToEnd)),
+						text: 'Now'
+					})
+				])));
 };
 var $author$project$Msg$BrowseGames = {$: 'BrowseGames'};
-var $Orasund$elm_ui_widgets$Widget$Material$toggleRow = $Orasund$elm_ui_widgets$Internal$Material$List$toggleRow;
-var $author$project$View$boardTopMenu = A2(
-	$Orasund$elm_ui_widgets$Widget$buttonRow,
-	{
-		content: $Orasund$elm_ui_widgets$Widget$Material$outlinedButton($author$project$Colors$secondaryPalette),
-		elementRow: $Orasund$elm_ui_widgets$Widget$Material$toggleRow
-	},
+var $author$project$Msg$FlipBoard = {$: 'FlipBoard'};
+var $icidasset$elm_material_icons$Material$Icons$sync = A2(
+	$icidasset$elm_material_icons$Material$Icons$Internal$icon,
 	_List_fromArray(
 		[
-			_Utils_Tuple2(
-			false,
+			$icidasset$elm_material_icons$Material$Icons$Internal$v('0 0 24 24')
+		]),
+	_List_fromArray(
+		[
+			A2(
+			$icidasset$elm_material_icons$Material$Icons$Internal$p,
+			_List_fromArray(
+				[
+					$elm$svg$Svg$Attributes$d('M0 0h24v24H0z'),
+					$icidasset$elm_material_icons$Material$Icons$Internal$f('none')
+				]),
+			_List_Nil),
+			A2(
+			$icidasset$elm_material_icons$Material$Icons$Internal$p,
+			_List_fromArray(
+				[
+					$elm$svg$Svg$Attributes$d('M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z')
+				]),
+			_List_Nil)
+		]));
+var $Orasund$elm_ui_widgets$Widget$Material$toggleRow = $Orasund$elm_ui_widgets$Internal$Material$List$toggleRow;
+var $author$project$View$boardTopMenu = A2(
+	$mdgriffith$elm_ui$Element$row,
+	_List_fromArray(
+		[
+			$mdgriffith$elm_ui$Element$width($mdgriffith$elm_ui$Element$fill)
+		]),
+	_List_fromArray(
+		[
+			A2(
+			$Orasund$elm_ui_widgets$Widget$buttonRow,
 			{
-				icon: $author$project$View$getIcon($icidasset$elm_material_icons$Material$Icons$arrow_back),
-				onPress: $elm$core$Maybe$Just(
-					$author$project$Msg$LoggedIn($author$project$Msg$BrowseGames)),
-				text: 'Back'
-			})
+				content: $Orasund$elm_ui_widgets$Widget$Material$outlinedButton($author$project$Colors$secondaryPalette),
+				elementRow: $Orasund$elm_ui_widgets$Widget$Material$toggleRow
+			},
+			_List_fromArray(
+				[
+					_Utils_Tuple2(
+					false,
+					{
+						icon: $author$project$View$getIcon($icidasset$elm_material_icons$Material$Icons$arrow_back),
+						onPress: $elm$core$Maybe$Just(
+							$author$project$Msg$LoggedIn($author$project$Msg$BrowseGames)),
+						text: 'Back'
+					})
+				])),
+			A2(
+			$mdgriffith$elm_ui$Element$el,
+			_List_fromArray(
+				[$mdgriffith$elm_ui$Element$alignRight]),
+			A2(
+				$Orasund$elm_ui_widgets$Widget$buttonRow,
+				{
+					content: $Orasund$elm_ui_widgets$Widget$Material$outlinedButton($author$project$Colors$secondaryPalette),
+					elementRow: $Orasund$elm_ui_widgets$Widget$Material$toggleRow
+				},
+				_List_fromArray(
+					[
+						_Utils_Tuple2(
+						false,
+						{
+							icon: $author$project$View$getIcon($icidasset$elm_material_icons$Material$Icons$sync),
+							onPress: $elm$core$Maybe$Just(
+								$author$project$Msg$LoggedIn($author$project$Msg$FlipBoard)),
+							text: 'Flip board'
+						})
+					])))
 		]));
 var $noahzgordon$elm_color_extra$Color$Accessibility$luminance = function (cl) {
 	var f = function (intensity) {
@@ -25018,6 +25104,7 @@ var $author$project$Chess$myTurn = F2(
 				},
 				$author$project$Matrix$username(vault)));
 	});
+var $elm$core$Debug$log = _Debug_log;
 var $author$project$Internal$Values$StateManager$getStateEvent = function (_v0) {
 	var eventType = _v0.eventType;
 	var stateKey = _v0.stateKey;
@@ -25051,26 +25138,29 @@ var $author$project$Chess$opponent = F2(
 				$elm$core$Maybe$withDefault,
 				u,
 				A2(
-					$elm$core$Maybe$andThen,
+					$elm$core$Debug$log,
+					'Username of ' + (u + ' : '),
 					A2(
-						$elm$core$Basics$composeR,
-						$elm$json$Json$Decode$decodeValue(
-							A2($elm$json$Json$Decode$field, 'displayname', $elm$json$Json$Decode$string)),
-						$elm$core$Result$toMaybe),
-					A2(
-						$elm$core$Maybe$map,
-						$author$project$Matrix$Event$content,
+						$elm$core$Maybe$andThen,
 						A2(
-							$author$project$Matrix$Room$stateEvent,
-							{eventType: 'm.room.member', stateKey: u},
-							room))));
+							$elm$core$Basics$composeR,
+							$elm$json$Json$Decode$decodeValue(
+								A2($elm$json$Json$Decode$field, 'displayname', $elm$json$Json$Decode$string)),
+							$elm$core$Result$toMaybe),
+						A2(
+							$elm$core$Maybe$map,
+							$author$project$Matrix$Event$content,
+							A2(
+								$author$project$Matrix$Room$stateEvent,
+								{eventType: 'm.room.member', stateKey: u},
+								room)))));
 		};
 		var _v1 = $author$project$Matrix$username(vault);
 		if (_v1.$ === 'Nothing') {
 			return data.black;
 		} else {
 			var userId = _v1.a;
-			return (_Utils_eq(userId, data.black) && _Utils_eq(userId, data.black)) ? 'Against yourself' : (_Utils_eq(userId, data.black) ? nameOf(data.white) : nameOf(data.black));
+			return (_Utils_eq(userId, data.black) && _Utils_eq(userId, data.white)) ? 'Against yourself' : (_Utils_eq(userId, data.black) ? nameOf(data.white) : nameOf(data.black));
 		}
 	});
 var $pilatch$elm_chess$Internal$Game$previousMove = function (game) {
@@ -25298,11 +25388,14 @@ var $author$project$View$loggedInScreen = F2(
 																$mdgriffith$elm_ui$Element$height(
 																$mdgriffith$elm_ui$Element$px(40))
 															]),
-														A3(
+														A4(
 															$author$project$View$board,
 															$pilatch$elm_chess$Game$position(data.game),
 															_List_Nil,
-															$pilatch$elm_chess$Game$previousMove(data.game))),
+															$pilatch$elm_chess$Game$previousMove(data.game),
+															_Utils_eq(
+																$author$project$Matrix$username(vault),
+																$elm$core$Maybe$Just(summary.data.white)))),
 													onPress: $elm$core$Maybe$Just(
 														$author$project$Msg$LoggedIn(
 															$author$project$Msg$ViewGame(summary))),
@@ -25330,7 +25423,7 @@ var $author$project$View$loggedInScreen = F2(
 					_List_fromArray(
 						[
 							$author$project$View$boardTopMenu,
-							A3(
+							A4(
 							$author$project$View$board,
 							$pilatch$elm_chess$Game$position(data.game.data.game),
 							function () {
@@ -25348,7 +25441,8 @@ var $author$project$View$loggedInScreen = F2(
 											$pilatch$elm_chess$Game$position(data.game.data.game)));
 								}
 							}(),
-							$pilatch$elm_chess$Game$previousMove(data.game.data.game)),
+							$pilatch$elm_chess$Game$previousMove(data.game.data.game),
+							data.boardFlipped),
 							$author$project$View$boardMenu(data.game.data.game)
 						])));
 		}
