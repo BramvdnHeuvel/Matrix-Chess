@@ -28,3 +28,5 @@ type LoggedInMsg
     | BrowseGames
     | JumpToEnd
     | FlipBoard
+    | AcceptGame GameSummary
+    | RejectGame GameSummary

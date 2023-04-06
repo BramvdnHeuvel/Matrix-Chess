@@ -99,9 +99,9 @@ update vault msg model =
         ( Msg.EditCreateGameModal modalData, Model.PlayGame _ data ) ->
             ( vault, Model.PlayGame (Just <| Model.CreateGame modalData) data, Cmd.none )
 
-        ( Msg.CreateGame user room, _ ) ->
+        ( Msg.CreateGame user room, Model.BrowsingGames _ ) ->
             ( vault
-            , model
+            , Model.BrowsingGames Nothing
             , case Matrix.username vault of
                 Nothing ->
                     Cmd.none
@@ -114,6 +114,47 @@ update vault msg model =
                         }
                         room
                         |> toCmd
+            )
+
+        ( Msg.CreateGame user room, Model.PlayGame _ data ) ->
+            ( vault
+            , Model.PlayGame Nothing data
+            , case Matrix.username vault of
+                Nothing ->
+                    Cmd.none
+
+                Just me ->
+                    Matrix.Room.sendOneEvent
+                        { content = Chess.encodeInviteEvent { white = me, black = user }
+                        , eventType = Chess.gameInviteEventType
+                        , stateKey = Nothing
+                        }
+                        room
+                        |> toCmd
+            )
+
+        ( Msg.AcceptGame summary, _ ) ->
+            ( vault
+            , model
+            , Matrix.Room.sendOneEvent
+                { content = Chess.encodeAcceptChess { reason = Nothing, relatedTo = summary.matchId }
+                , eventType = Chess.acceptChessEventType
+                , stateKey = Nothing
+                }
+                summary.room
+                |> toCmd
+            )
+
+        ( Msg.RejectGame summary, _ ) ->
+            ( vault
+            , model
+            , Matrix.Room.sendOneEvent
+                { content = Chess.encodeRejectChess { reason = Nothing, relatedTo = summary.matchId }
+                , eventType = Chess.rejectChessEventType
+                , stateKey = Nothing
+                }
+                summary.room
+                |> toCmd
             )
 
         ( _, Model.BrowsingGames _ ) ->

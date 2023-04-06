@@ -527,13 +527,34 @@ loggedInScreen vault model =
                                 Widget.imageItem
                                     (Material.imageItem C.primaryPalette)
                                     { text = Chess.opponent vault summary ++ " - turn " ++ (String.fromInt <| List.length <| Game.moves data.game)
-                                    , onPress = Just <| Msg.LoggedIn <| Msg.ViewGame summary
+                                    , onPress =
+                                        if Chess.isInvitation vault summary then
+                                            Nothing
+
+                                        else
+                                            Just <| Msg.LoggedIn <| Msg.ViewGame summary
                                     , image =
                                         board (Game.position data.game) [] (Game.previousMove data.game) (Matrix.username vault == Just summary.data.white)
                                             |> Element.el [ Element.width (Element.px 40), Element.height (Element.px 40) ]
                                     , content =
                                         \{ size, color } ->
-                                            if Chess.myTurn vault summary then
+                                            if Chess.isInvitation vault summary then
+                                                Element.row [ Element.height (Element.px size) ]
+                                                    [ Widget.iconButton
+                                                        (Material.containedButton (C.primaryPalette |> (\d -> { d | primary = C.noordstarGreen })))
+                                                        { text = "Accept"
+                                                        , icon = getIcon Icons.done
+                                                        , onPress = Just (Msg.LoggedIn <| Msg.AcceptGame summary)
+                                                        }
+                                                    , Widget.iconButton
+                                                        (Material.containedButton (C.primaryPalette |> (\d -> { d | primary = C.noordstarRed })))
+                                                        { text = "Reject"
+                                                        , icon = getIcon Icons.close
+                                                        , onPress = Just (Msg.LoggedIn <| Msg.RejectGame summary)
+                                                        }
+                                                    ]
+
+                                            else if Chess.myTurn vault summary then
                                                 Element.text "YOUR TURN"
                                                     |> Element.el
                                                         [ C.background color

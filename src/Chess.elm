@@ -1,4 +1,4 @@
-module Chess exposing (GameState, GameSummary, accountDataEventType, encodeChessMove, encodeInviteEvent, gameChessMoveEventType, gameInviteEventType, getGames, myTurn, opponent, resolve)
+module Chess exposing (GameState, GameSummary, acceptChessEventType, accountDataEventType, encodeAcceptChess, encodeChessMove, encodeInviteEvent, encodeRejectChess, gameChessMoveEventType, gameInviteEventType, getGames, isInvitation, myTurn, opponent, rejectChessEventType, resolve)
 
 {-| In this module, we calculate the state of each game by looking at the Matrix Vault.
 
@@ -383,23 +383,29 @@ type alias AccountData =
 -}
 type alias GameState =
     { black : String
+    , blackAccepted : Bool
     , game : Game.Game
+    , instigator : String
     , lastMove : String
     , lastUpdatedAt : Timestamp.Timestamp
     , white : String
+    , whiteAccepted : Bool
     }
 
 
 {-| Encode a GameState into a JSON value.
 -}
 encodeGameState : GameState -> E.Value
-encodeGameState { black, game, lastMove, lastUpdatedAt, white } =
+encodeGameState { black, blackAccepted, game, instigator, lastMove, lastUpdatedAt, white, whiteAccepted } =
     E.object
         [ ( "black", E.string black )
+        , ( "black_accepted", E.bool blackAccepted )
+        , ( "instigator", E.string instigator )
         , ( "last_move", E.string lastMove )
         , ( "origin_server_ts", Timestamp.encodeTimestamp lastUpdatedAt )
         , ( "pgn", encodePGN game )
         , ( "white", E.string white )
+        , ( "white_accepted", E.bool whiteAccepted )
         ]
 
 
@@ -407,13 +413,16 @@ encodeGameState { black, game, lastMove, lastUpdatedAt, white } =
 -}
 gameStateDecoder : D.Decoder GameState
 gameStateDecoder =
-    D.map5
-        (\b g e o w -> { black = b, game = g, lastMove = e, lastUpdatedAt = o, white = w })
+    D.map8
+        (\b ba i g e o w wa -> { black = b, blackAccepted = ba, instigator = i, game = g, lastMove = e, lastUpdatedAt = o, white = w, whiteAccepted = wa })
         (D.field "black" D.string)
+        (D.field "black_accepted" D.bool)
+        (D.field "instigator" D.string)
         (D.field "pgn" pgnDecoder)
         (D.field "last_move" D.string)
         (D.field "origin_server_ts" Timestamp.timestampDecoder)
         (D.field "white" D.string)
+        (D.field "white_accepted" D.bool)
 
 
 {-| Encode an AccountData type into a JSON value.
@@ -549,6 +558,8 @@ updateGameWith event accountData =
             Dict.insert
                 (Matrix.Event.eventId event)
                 { black = black
+                , blackAccepted = Matrix.Event.sender event == black
+                , instigator = Matrix.Event.sender event
                 , game =
                     emptyGame
                         { black = black
@@ -559,20 +570,39 @@ updateGameWith event accountData =
                 , lastMove = Matrix.Event.eventId event
                 , lastUpdatedAt = Matrix.Event.originServerTs event
                 , white = white
+                , whiteAccepted = Matrix.Event.sender event == white
                 }
                 accountData
 
-        Just (Accept _) ->
-            accountData
+        Just (Accept { relatedTo }) ->
+            Dict.update relatedTo
+                (Maybe.map
+                    (\state ->
+                        { state
+                            | blackAccepted =
+                                if Matrix.Event.sender event == state.black then
+                                    True
 
-        -- TODO
+                                else
+                                    state.blackAccepted
+                            , whiteAccepted =
+                                if Matrix.Event.sender event == state.white then
+                                    True
+
+                                else
+                                    state.whiteAccepted
+                        }
+                    )
+                )
+                accountData
+
         Just (Reject { relatedTo }) ->
             -- Remove game from account data,
             -- but only if nothing has happened yet.
             Dict.update relatedTo
                 (Maybe.andThen
                     (\state ->
-                        if Game.moves state.game == [] then
+                        if List.length (Game.moves state.game) <= 1 then
                             Nothing
 
                         else
@@ -592,6 +622,8 @@ updateGameWith event accountData =
                                                 )
                                             |> Game.fromPgn
                                             |> Maybe.withDefault state.game
+                                    , blackAccepted = False
+                                    , whiteAccepted = False
                                 }
                     )
                 )
@@ -615,6 +647,8 @@ updateGameWith event accountData =
                                         )
                                     |> Game.fromPgn
                                     |> Maybe.withDefault state.game
+                            , blackAccepted = False
+                            , whiteAccepted = False
                         }
                     )
                 )
@@ -628,11 +662,15 @@ updateGameWith event accountData =
                         if isAllowedToMove (Matrix.Event.sender event) state then
                             if state.lastMove == lastMove then
                                 if isOneMoreMove state.game newGame then
-                                    { state
-                                        | game = newGame
-                                        , lastMove = Matrix.Event.eventId event
-                                        , lastUpdatedAt = Matrix.Event.originServerTs event
-                                    }
+                                    if state.blackAccepted && state.whiteAccepted then
+                                        { state
+                                            | game = newGame
+                                            , lastMove = Matrix.Event.eventId event
+                                            , lastUpdatedAt = Matrix.Event.originServerTs event
+                                        }
+
+                                    else
+                                        state
 
                                 else
                                     state
@@ -661,7 +699,7 @@ emptyGame { black, eventId, roomId, white } =
     , black
     , "\"]\n[White \""
     , white
-    , "\"]\n\n*"
+    , "\"]\n\n *"
     ]
         |> List.map (String.replace "\"" "\\\"")
         |> String.join ""
@@ -823,10 +861,33 @@ myTurn vault { data } =
     Matrix.username vault
         |> Maybe.map
             (\name ->
-                if Position.sideToMove (Game.position (Game.toEnd data.game)) == PieceColor.black then
-                    name == data.black
+                if data.blackAccepted && data.whiteAccepted then
+                    if Position.sideToMove (Game.position (Game.toEnd data.game)) == PieceColor.black then
+                        name == data.black
+
+                    else
+                        name == data.white
 
                 else
-                    name == data.white
+                    False
+            )
+        |> Maybe.withDefault False
+
+
+{-| Check whether this game still needs our permission to play.
+-}
+isInvitation : Matrix.Vault -> GameSummary -> Bool
+isInvitation vault { data } =
+    Matrix.username vault
+        |> Maybe.map
+            (\name ->
+                if not data.blackAccepted && (data.black == name) then
+                    True
+
+                else if not data.whiteAccepted && (data.white == name) then
+                    True
+
+                else
+                    False
             )
         |> Maybe.withDefault False
